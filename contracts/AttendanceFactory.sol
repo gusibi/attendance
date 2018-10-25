@@ -11,11 +11,15 @@ import "./stringUtils.sol";
 
 contract AttendanceFactory {
 
+    address public owner;
+
     event NewAttendance(uint aid, string name, uint16 start_date, uint8 period, uint8 price);
+    event AttendanceEnded(uint aid);
     event LogUintArray(string, uint[]);
     function logUintArray(string s, uint[] x) internal{
         emit LogUintArray(s, x);
     }
+    event LogAddress(string, address);
     event LogUint(string, uint);
     event LogUint16(string, uint16);
     event LogInt(string, int);
@@ -24,6 +28,9 @@ contract AttendanceFactory {
         emit LogString(s, x);
     }
 
+    constructor() public {
+        owner = msg.sender;
+    }
 
     // 打卡数据
     struct Attendance{
@@ -32,7 +39,10 @@ contract AttendanceFactory {
         uint8   period;  // 持续时间
         uint8   price;   // 参与需要支付的价格
         uint16  members_count; // 参与人数
-        address owner;  // 创建者
+        uint16  accomplish_count; // 完成(不间断打卡)人数
+        uint16  rewards_amount; // 奖金池总额
+        bool    ended;    // 是否结束，需要创建者手动结束
+        address creator;  // 创建者
     }
 
     // event LogAttendanceArray(string, Attendance[]);
@@ -40,10 +50,17 @@ contract AttendanceFactory {
     Attendance[] public attendances; // 所有的打卡列表
 
     mapping (uint16 => uint[]) public dateAttendances; // 每天对应的打卡
+    mapping (uint => address[]) public accomplishAttendance; // 完成打卡的统计(key 为 aid，value 为完成的参与者数组) 
 
     modifier onlyAttendanceExist(uint aid) {
         Attendance memory a = attendances[aid];
         require(StringUtils.compare(a.name, "") != 0, "attendance not exist"); // name 不为空，意思是 打卡存在
+        _;
+    }
+
+    modifier onlyAttendanceCreator(uint aid) {
+        Attendance memory a = attendances[aid];
+        require(a.creator == msg.sender, "attendance not yours"); // 检查是否是你创建的打卡 
         _;
     }
 
@@ -69,7 +86,7 @@ contract AttendanceFactory {
 
     function createAttendance(string memory _name, uint16 _start_date, uint8 _period, uint8 _price) public{
         uint[] memory day_aids;  // 打卡 ID 列表
-        uint id = attendances.push(Attendance(_name, _start_date, _period, _price, 0, msg.sender)) - 1;
+        uint id = attendances.push(Attendance(_name, _start_date, _period, _price, 0, 0, 0, false, msg.sender)) - 1;
         emit LogUint("days: ", _start_date);
         if (dateAttendances[_start_date].length > 0){
             day_aids = dateAttendances[_start_date];
@@ -91,10 +108,10 @@ contract AttendanceFactory {
         uint8 period,  // 持续时间
         uint8 price,   // 参与需要支付的价格
         uint16 members_count, // 参与人数
-        address owner  // 创建者
+        address creator  // 创建者
     ){
         Attendance memory a = attendances[aid];
-        return (aid, a.name, a.start_date, a.period, a.price, a.members_count, a.owner);
+        return (aid, a.name, a.start_date, a.period, a.price, a.members_count, a.creator);
     }
 
     function getValidAttendance() public view returns(uint[] memory){

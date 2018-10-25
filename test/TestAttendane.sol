@@ -32,7 +32,7 @@ contract TestAttendane {
     function testEmptyValidAttendance() public {
         AttendanceFactory attendance = new AttendanceFactory();
 
-        uint[] storage day_aids;
+        uint[] memory day_aids;
         attendance.createAttendance("test1", 27830, 10, 1);
 
         Assert.equal(attendance.getValidAttendance(), day_aids, "Valid attendance error");
@@ -47,7 +47,9 @@ contract TestAttendane {
         valid_aids.push(0);
 
         uint[] memory _validAttendance;
-        attendance.createAttendance("test1", 17829, 10, 1);
+        uint16 start_date;
+        start_date = uint16(now / 86400) + 1; // 明天
+        attendance.createAttendance("test1", start_date, 10, 1);
 
         _validAttendance = attendance.getValidAttendance();
         Assert.equal(_validAttendance, valid_aids, "Valid attendance error");
